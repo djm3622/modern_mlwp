@@ -83,4 +83,5 @@ class AFNO2D(nn.Module):
         x = x.reshape(B, H, W, C)
         x = torch.fft.irfft2(x, s=(H, W), dim=(1, 2), norm="ortho")
         x = x.reshape(B, H, W, C)
+        
         return x
