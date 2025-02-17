@@ -28,6 +28,8 @@ class AFNO2D(nn.Module):
         self.w2 = nn.Parameter(self.scale * torch.randn(2, self.num_blocks, self.block_size * self.hidden_size_factor, self.block_size))
         self.b2 = nn.Parameter(self.scale * torch.randn(2, self.num_blocks, self.block_size))
 
+        self.gelu = nn.GELU()
+
     def forward(self, x, spatial_size=None):
         B, H, W, C = x.shape
 
@@ -44,13 +46,13 @@ class AFNO2D(nn.Module):
         total_modes = (H*W) // 2 + 1
         kept_modes = int(total_modes * self.hard_thresholding_fraction)
 
-        o1_real[:, :, :kept_modes] = F.relu(
+        o1_real[:, :, :kept_modes] = self.gelu(
             torch.einsum('...bi,bio->...bo', x[:, :, :kept_modes].real, self.w1[0]) - \
             torch.einsum('...bi,bio->...bo', x[:, :, :kept_modes].imag, self.w1[1]) + \
             self.b1[0]
         )
 
-        o1_imag[:, :, :kept_modes] = F.relu(
+        o1_imag[:, :, :kept_modes] = self.gelu(
             torch.einsum('...bi,bio->...bo', x[:, :, :kept_modes].imag, self.w1[0]) + \
             torch.einsum('...bi,bio->...bo', x[:, :, :kept_modes].real, self.w1[1]) + \
             self.b1[1]

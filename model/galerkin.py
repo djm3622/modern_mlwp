@@ -6,6 +6,7 @@ import copy
 from torch.nn.init import xavier_uniform_, constant_, xavier_normal_
 
 # Galerkin Attention block adapted from https://github.com/scaomath/galerkin-transformer
+# simply further
 class GalerkinAttention(nn.Module):
     def __init__(self, n_head, d_model,
                  pos_dim: int = 1,
@@ -90,6 +91,7 @@ class GalerkinAttention(nn.Module):
             query, key, value = [torch.cat([pos, x], dim=-1)
                                  for x in (query, key, value)]
 
+        # I removed the other attention types for simplicity
         x, self.attn_weight = linear_attention(query, key, value,
                                                 mask=mask,
                                                 attention_type=self.attention_type,
