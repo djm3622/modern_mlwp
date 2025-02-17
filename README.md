@@ -1,4 +1,5 @@
-# modern_mlwp
+# A Modern Approach to training ERA5-based Machine Learning Weather Prediction Systems
+In this paper, we propose an approach to efficiently train machine learning models for weather prediction. We identify three core issues with ERA5-based models: (1) small dataset size, (2) lack of focus on rare events such as hurricanes and tropical storms, and (3) inefficient computational scaling regarding coarse to fine resolutions. To address these challenges, we propose three key additions to the training pipeline: adaptive-time dynamics simulation, importance sampling, and multi-resolution training. Our goal is to maximize both data and computational efficiency, ensuring less training and retraining.
 
 
 #### Dataset 
