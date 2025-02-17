@@ -11,7 +11,14 @@ class AFNO2D(nn.Module):
     sparsity_threshold: lambda for softshrink
     hard_thresholding_fraction: how many frequencies you want to completely mask out (lower => hard_thresholding_fraction^2 less FLOPs)
     """
-    def __init__(self, hidden_size, num_blocks=8, sparsity_threshold=0.01, hard_thresholding_fraction=1, hidden_size_factor=1):
+    def __init__(self, 
+        hidden_size: int, 
+        num_blocks: int = 8, 
+        sparsity_threshold: float = 0.01, 
+        hard_thresholding_fraction: int = 1, 
+        hidden_size_factor: int = 1
+    ) -> None:
+        
         super().__init__()
         assert hidden_size % num_blocks == 0, f"hidden_size {hidden_size} should be divisble by num_blocks {num_blocks}"
 
@@ -30,7 +37,7 @@ class AFNO2D(nn.Module):
 
         self.gelu = nn.GELU()
 
-    def forward(self, x, spatial_size=None):
+    def forward(self, x):
         B, H, W, C = x.shape
 
         x = torch.fft.rfft2(x, dim=(1, 2), norm="ortho")

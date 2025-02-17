@@ -4,36 +4,46 @@ import torch.nn as nn
 import torch.nn.functional as F
 import copy
 from torch.nn.init import xavier_uniform_, constant_, xavier_normal_
+from typing import Tuple
 
 # Galerkin Attention block adapted from https://github.com/scaomath/galerkin-transformer
 # simply further
 class GalerkinAttention(nn.Module):
-    def __init__(self, n_head, d_model,
-                 pos_dim: int = 1,
-                 attention_type='fourier',
-                 dropout=0.1,
-                 xavier_init=1e-4,
-                 diagonal_weight=1e-2,
-                 symmetric_init=False,
-                 norm=False,
-                 norm_type='layer',
-                 eps=1e-5,
-                 debug=False):
+    def __init__(
+        self, 
+        n_head: int, 
+        d_model: int,
+        pos_dim: int = 1,
+        dropout: float = 0.1,
+        xavier_init: float = 1e-4,
+        diagonal_weight: float = 1e-2,
+        symmetric_init: bool = False,
+        norm: bool = False,
+        norm_type: str = 'layer',
+        eps: float = 1e-5,
+        debug: bool = False
+    ) -> None:
+    
         super().__init__()
         assert d_model % n_head == 0
-        self.attention_type = attention_type
         self.d_k = d_model // n_head
         self.n_head = n_head
         self.pos_dim = pos_dim
+
         self.linears = nn.ModuleList(
-            [copy.deepcopy(nn.Linear(d_model, d_model)) for _ in range(3)])
+            [copy.deepcopy(nn.Linear(d_model, d_model)) for _ in range(3)]
+        )
+        
         self.xavier_init = xavier_init
         self.diagonal_weight = diagonal_weight
         self.symmetric_init = symmetric_init
+
         if self.xavier_init > 0:
             self._reset_parameters()
+
         self.add_norm = norm
         self.norm_type = norm_type
+        
         if norm:
             self._get_norm(eps=eps)
 
@@ -52,53 +62,40 @@ class GalerkinAttention(nn.Module):
         if weight is not None:
             query, key = weight*query, weight*key
 
-        query, key, value = \
-            [layer(x).view(bsz, -1, self.n_head, self.d_k).transpose(1, 2)
-             for layer, x in zip(self.linears, (query, key, value))]
+        query, key, value = [
+            layer(x).view(bsz, -1, self.n_head, self.d_k).transpose(1, 2) 
+            for layer, x in zip(self.linears, (query, key, value))
+        ]
 
         if self.add_norm:
-            if self.attention_type in ['linear', 'galerkin', 'global']:
-                if self.norm_type == 'instance':
-                    key, value = key.transpose(-2, -1), value.transpose(-2, -1)
+            if self.norm_type == 'instance':
+                key, value = key.transpose(-2, -1), value.transpose(-2, -1)
 
-                key = torch.stack(
-                    [norm(x) for norm, x in
-                     zip(self.norm_K, (key[:, i, ...] for i in range(self.n_head)))], dim=1)
-                value = torch.stack(
-                    [norm(x) for norm, x in
-                     zip(self.norm_V, (value[:, i, ...] for i in range(self.n_head)))], dim=1)
+            key = torch.stack(
+                [norm(x) for norm, x in
+                    zip(self.norm_K, (key[:, i, ...] for i in range(self.n_head)))], dim=1)
+            value = torch.stack(
+                [norm(x) for norm, x in
+                    zip(self.norm_V, (value[:, i, ...] for i in range(self.n_head)))], dim=1)
 
-                if self.norm_type == 'instance':
-                    key, value = key.transpose(-2, -1), value.transpose(-2, -1)
-            else:
-                if self.norm_type == 'instance':
-                    key, query = key.transpose(-2, -1), query.transpose(-2, -1)
-
-                key = torch.stack(
-                    [norm(x) for norm, x in
-                     zip(self.norm_K, (key[:, i, ...] for i in range(self.n_head)))], dim=1)
-                query = torch.stack(
-                    [norm(x) for norm, x in
-                     zip(self.norm_Q, (query[:, i, ...] for i in range(self.n_head)))], dim=1)
-
-                if self.norm_type == 'instance':
-                    key, query = key.transpose(-2, -1), value.transpose(-2, -1)
+            if self.norm_type == 'instance':
+                key, value = key.transpose(-2, -1), value.transpose(-2, -1)
 
         if pos is not None and self.pos_dim > 0:
             assert pos.size(-1) == self.pos_dim
             pos = pos.unsqueeze(1)
             pos = pos.repeat([1, self.n_head, 1, 1])
-            query, key, value = [torch.cat([pos, x], dim=-1)
-                                 for x in (query, key, value)]
+            query, key, value = [torch.cat([pos, x], dim=-1) for x in (query, key, value)]
 
-        # I removed the other attention types for simplicity
-        x, self.attn_weight = linear_attention(query, key, value,
-                                                mask=mask,
-                                                attention_type=self.attention_type,
-                                                dropout=self.dropout)
+        # i removed the other attention types for simplicity
+        x, self.attn_weight = linear_attention(
+            query, key, value,
+            mask=mask,
+            attention_type=self.attention_type,
+            dropout=self.dropout
+        )
 
-        out_dim = self.n_head * self.d_k if pos is None else self.n_head * \
-            (self.d_k + self.pos_dim)
+        out_dim = self.n_head * self.d_k if pos is None else self.n_head * (self.d_k + self.pos_dim)
         att_output = x.transpose(1, 2).contiguous().view(bsz, -1, out_dim)
 
         if pos is not None and self.pos_dim > 0:
@@ -116,37 +113,16 @@ class GalerkinAttention(nn.Module):
                             param.size(-1), dtype=torch.float))
                 if self.symmetric_init:
                     param.data += param.data.T
-                    # param.data /= 2.0
             else:
                 constant_(param, 0)
 
     def _get_norm(self, eps):
-        if self.attention_type in ['linear', 'galerkin', 'global']:
-            if self.norm_type == 'instance':
-                self.norm_K = self._get_instancenorm(self.d_k, self.n_head,
-                                                     eps=eps,
-                                                     affine=True)
-                self.norm_V = self._get_instancenorm(self.d_k, self.n_head,
-                                                     eps=eps,
-                                                     affine=True)
-            elif self.norm_type == 'layer':
-                self.norm_K = self._get_layernorm(self.d_k, self.n_head,
-                                                  eps=eps)
-                self.norm_V = self._get_layernorm(self.d_k, self.n_head,
-                                                  eps=eps)
-        else:
-            if self.norm_type == 'instance':
-                self.norm_K = self._get_instancenorm(self.d_k, self.n_head,
-                                                     eps=eps,
-                                                     affine=True)
-                self.norm_Q = self._get_instancenorm(self.d_k, self.n_head,
-                                                     eps=eps,
-                                                     affine=True)
-            elif self.norm_type == 'layer':
-                self.norm_K = self._get_layernorm(self.d_k, self.n_head,
-                                                  eps=eps)
-                self.norm_Q = self._get_layernorm(self.d_k, self.n_head,
-                                                  eps=eps)
+        if self.norm_type == 'instance':
+            self.norm_K = self._get_instancenorm(self.d_k, self.n_head, eps=eps, affine=True)
+            self.norm_V = self._get_instancenorm(self.d_k, self.n_head, eps=eps, affine=True)
+        elif self.norm_type == 'layer':
+            self.norm_K = self._get_layernorm(self.d_k, self.n_head, eps=eps)
+            self.norm_V = self._get_layernorm(self.d_k, self.n_head, eps=eps)
 
     @staticmethod
     def _get_layernorm(normalized_dim, n_head, **kwargs):
@@ -159,9 +135,11 @@ class GalerkinAttention(nn.Module):
             [copy.deepcopy(nn.InstanceNorm1d(normalized_dim, **kwargs)) for _ in range(n_head)])
 
 
-def linear_attention(query, key, value,
-                     mask=None, dropout=None,
-                     attention_type='galerkin'):
+def linear_attention(
+    query, key, value,
+    mask=None, dropout=None,
+    attention_type='galerkin'
+) -> tuple[torch.Tensor, torch.Tensor]:
     '''
     Adapted from lucidrains' implementaion
     https://github.com/lucidrains/linear-attention-transformer/blob/master/linear_attention_transformer/linear_attention_transformer.py
