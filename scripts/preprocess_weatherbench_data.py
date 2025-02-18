@@ -1,8 +1,8 @@
 import argparse
-import xarray
+import xarray # type: ignore
 import numpy
-import dask
-from dask.diagnostics import ProgressBar
+import dask # type: ignore
+from dask.diagnostics import ProgressBar # type: ignore
 import os
 import time
 import sys

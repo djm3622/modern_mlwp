@@ -7,6 +7,15 @@ from galerkin import GalerkinAttention
 from afno import AdaptiveFNO
 
 
+# patch embedding layer to encode regions of space
+class PatchEmbedding(nn.Module):
+    def __init__(self):
+        super().__init__()
+        
+    def forward(self, x):
+        pass
+
+
 # resolution invariant block with AFNO, Galerkin Attention, pw convs
 class InvariantBlock(nn.Module):
     def __init__(self, dim, modes=16, expansion=8, heads=8):
@@ -40,43 +49,3 @@ class InvariantBlock(nn.Module):
         x = x + h
 
         return x.permute(0, 2, 3, 1)
-
-
-# scale equivariant down/pooling block
-# truncation the high frequency modes within the fourier domain
-class ScaleEquivariantDown(nn.Module):
-    def __init__(self, dim):
-        super().__init__()
-        
-    def forward(self, x):
-        pass
-
-
-# scale equivariant upsampling block
-# zero padding modes within the fourier domain
-class ScaleEquivariantUp(nn.Module):
-    def __init__(self, dim):
-        super().__init__()
-        
-    def forward(self, x):
-        pass
-
-
-# scale equariant encoder block
-class InvariantEncoder(nn.Module):
-    def __init__(self, in_dim, hidden=128, depth=8):
-        super().__init__()
-        
-        
-    def forward(self, x):
-        pass
-
-
-# scale equariant decoder block
-class InvariantEncoder(nn.Module):
-    def __init__(self, in_dim, hidden=128, depth=8):
-        super().__init__()
-        
-        
-    def forward(self, x, h):
-        pass
