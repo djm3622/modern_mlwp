@@ -12,8 +12,7 @@ class GalerkinAttention(nn.Module):
         self, 
         n_head: int, 
         d_model: int,
-        pos_dim: int = 1,
-        dropout: float = 0.1,
+        dropout: float = 0.0,
         xavier_init: float = 1e-4,
         diagonal_weight: float = 1e-2,
         symmetric_init: bool = False,
@@ -27,7 +26,6 @@ class GalerkinAttention(nn.Module):
         assert d_model % n_head == 0
         self.d_k = d_model // n_head
         self.n_head = n_head
-        self.pos_dim = pos_dim
 
         self.linears = nn.ModuleList(
             [copy.deepcopy(nn.Linear(d_model, d_model)) for _ in range(3)]
@@ -46,20 +44,11 @@ class GalerkinAttention(nn.Module):
         if norm:
             self._get_norm(eps=eps)
 
-        if pos_dim > 0:
-            self.fc = nn.Linear(d_model + n_head*pos_dim, d_model)
-
-        self.attn_weight = None
         self.dropout = nn.Dropout(dropout)
         self.debug = debug
 
-    def forward(self, query, key, value, pos=None, mask=None, weight=None):
-        if mask is not None:
-            mask = mask.unsqueeze(1)
-
+    def forward(self, query, key, value):
         bsz = query.size(0)
-        if weight is not None:
-            query, key = weight*query, weight*key
 
         query, key, value = [
             layer(x).view(bsz, -1, self.n_head, self.d_k).transpose(1, 2) 
@@ -71,36 +60,23 @@ class GalerkinAttention(nn.Module):
                 key, value = key.transpose(-2, -1), value.transpose(-2, -1)
 
             key = torch.stack(
-                [norm(x) for norm, x in
-                    zip(self.norm_K, (key[:, i, ...] for i in range(self.n_head)))], dim=1)
+                [norm(x) for norm, x in zip(self.norm_K, (key[:, i, ...] for i in range(self.n_head)))], dim=1
+            )
             value = torch.stack(
-                [norm(x) for norm, x in
-                    zip(self.norm_V, (value[:, i, ...] for i in range(self.n_head)))], dim=1)
+                [norm(x) for norm, x in zip(self.norm_V, (value[:, i, ...] for i in range(self.n_head)))], dim=1
+            )
 
             if self.norm_type == 'instance':
                 key, value = key.transpose(-2, -1), value.transpose(-2, -1)
 
-        if pos is not None and self.pos_dim > 0:
-            assert pos.size(-1) == self.pos_dim
-            pos = pos.unsqueeze(1)
-            pos = pos.repeat([1, self.n_head, 1, 1])
-            query, key, value = [torch.cat([pos, x], dim=-1) for x in (query, key, value)]
-
-        # i removed the other attention types for simplicity
-        x, self.attn_weight = linear_attention(
-            query, key, value,
-            mask=mask,
-            attention_type=self.attention_type,
-            dropout=self.dropout
+        x = linear_attention(
+            query, key, value, dropout=self.dropout
         )
 
-        out_dim = self.n_head * self.d_k if pos is None else self.n_head * (self.d_k + self.pos_dim)
+        out_dim = self.n_head * self.d_k
         att_output = x.transpose(1, 2).contiguous().view(bsz, -1, out_dim)
 
-        if pos is not None and self.pos_dim > 0:
-            att_output = self.fc(att_output)
-
-        return att_output, self.attn_weight
+        return att_output
 
     def _reset_parameters(self):
         for param in self.linears.parameters():
@@ -135,9 +111,7 @@ class GalerkinAttention(nn.Module):
 
 
 def linear_attention(
-    query, key, value,
-    mask=None, dropout=None,
-    attention_type='galerkin'
+    query, key, value, dropout=None
 ) -> tuple[torch.Tensor, torch.Tensor]:
     '''
     Adapted from lucidrains' implementaion
@@ -148,13 +122,7 @@ def linear_attention(
     '''
 
     seq_len = query.size(-2)
-    if attention_type in ['linear', 'global']:
-        query = query.softmax(dim=-1)
-        key = key.softmax(dim=-2)
     scores = torch.matmul(key.transpose(-2, -1), value)
-
-    if mask is not None:
-        raise RuntimeError("linear attention does not support casual mask.")
 
     p_attn = scores / seq_len
 
@@ -162,4 +130,4 @@ def linear_attention(
         p_attn = F.dropout(p_attn)
 
     out = torch.matmul(query, p_attn)
-    return out, p_attn
+    return out

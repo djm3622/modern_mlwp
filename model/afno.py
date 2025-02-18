@@ -39,14 +39,14 @@ class AFNO2D(nn.Module):
 
     def forward(self, x):
         B, H, W, C = x.shape
-
         x = torch.fft.rfft2(x, dim=(1, 2), norm="ortho")
 
-        # Permute + diagonalize
-        x = x.reshape(B, H, W, self.num_blocks, self.block_size)
+        # reshape and diagonalize
+        _, H_f, W_f, _ = x.shape
+        x = x.reshape(B, H_f, W_f, self.num_blocks, self.block_size)
 
-        o1_real = torch.zeros([B, H, W, self.num_blocks, self.block_size * self.hidden_size_factor], device=x.device)
-        o1_imag = torch.zeros([B, H, W, self.num_blocks, self.block_size * self.hidden_size_factor], device=x.device)
+        o1_real = torch.zeros([B, H_f, W_f, self.num_blocks, self.block_size * self.hidden_size_factor], device=x.device)
+        o1_imag = torch.zeros([B, H_f, W_f, self.num_blocks, self.block_size * self.hidden_size_factor], device=x.device)
         o2_real = torch.zeros(x.shape, device=x.device)
         o2_imag = torch.zeros(x.shape, device=x.device)
 
@@ -80,8 +80,8 @@ class AFNO2D(nn.Module):
         x = torch.stack([o2_real, o2_imag], dim=-1)
         x = F.softshrink(x, lambd=self.sparsity_threshold)
         x = torch.view_as_complex(x)
-        x = x.reshape(B, H, W, C)
+        x = x.reshape(B, H_f, W_f, C)
         x = torch.fft.irfft2(x, s=(H, W), dim=(1, 2), norm="ortho")
         x = x.reshape(B, H, W, C)
-        
+
         return x
