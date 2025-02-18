@@ -12,6 +12,34 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from data.forcings.toa_radiation import toa_radiation
 
 
+def reshape_grid(ds):
+    """
+    Reshape grid if dimensions are 1440x721 or 240x121 to 1440x720 or 240x120.
+    This removes the redundant pole point while preserving the data structure.
+    
+    Args:
+        ds (xarray.Dataset): Input dataset
+        
+    Returns:
+        xarray.Dataset: Reshaped dataset if dimensions match criteria, otherwise original data
+    """
+    lat_size = ds.latitude.size
+    lon_size = ds.longitude.size
+    
+    # Check if dimensions match the criteria for reshaping
+    if (lon_size == 1440 and lat_size == 721) or (lon_size == 240 and lat_size == 121):
+        # Remove the last latitude point (pole point)
+        ds = ds.isel(latitude=slice(0, -1))
+        
+        # Update attributes to reflect new grid
+        if 'description' in ds.attrs:
+            ds.attrs['description'] = ds.attrs['description'] + ' (Reshaped grid)'
+        
+        print(f"Grid reshaped from {lon_size}x{lat_size} to {lon_size}x{ds.latitude.size}")
+    
+    return ds
+
+
 def compute_cartesian_wind(ds):
     """
     Compute 3D Cartesian wind components from spherical components.
@@ -153,11 +181,11 @@ def main():
     if args.remove_poles:
         ds = ds.isel(latitude=slice(1, ds.latitude.size - 1))
 
+    # Reshape the grid if dimensions are 1440x721 or 240x121
+    ds = reshape_grid(ds)
+
     # Step 1: Stack data for efficient storage and processing
     stack_data(ds, args.output_dir)
-
-    # Step 1.5: If size 1440x721 or 240x121, reshape to 1440x720 or 240x120
-    # TODO
 
     # Step 2: Precompute static data (e.g., geographic variables)
     precompute_static_data(ds, args.output_dir)

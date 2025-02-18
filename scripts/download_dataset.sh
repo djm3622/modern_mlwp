@@ -5,10 +5,16 @@ BASE_PATH_64="gs://weatherbench2/datasets/era5/1959-2023_01_10-6h-64x32_equiangu
 BASE_PATH_240="gs://weatherbench2/datasets/era5/1959-2023_01_10-6h-240x121_equiangular_with_poles_conservative.zarr"
 BASE_PATH_1400="gs://weatherbench2/datasets/era5/1959-2023_01_10-6h-1440x721_equiangular_with_poles_conservative.zarr"
 
-# Define output paths
-OUTPUT_PATH_64="$1/5.625deg"
-OUTPUT_PATH_240="$1/1.5deg"
-OUTPUT_PATH_1440="$1/1.5deg"
+# Determine output path based on degree argument
+case "$1" in
+    "5.625") OUTPUT_PATH="$PWD/ERA5/5.625deg"; BASE_PATH="$BASE_PATH_64";;
+    "1.5") OUTPUT_PATH="$PWD/ERA5/1.5deg"; BASE_PATH="$BASE_PATH_240";;
+    "0.25") OUTPUT_PATH="$PWD/ERA5/0.25deg"; BASE_PATH="$BASE_PATH_1400";;
+    *) echo "Invalid degree specified. Use 5.625, 1.5, or 0.25."; exit 1;;
+esac
+
+# Create output directory
+mkdir -p "$OUTPUT_PATH"
 
 # Define the list of files to copy
 FILES=(
@@ -38,22 +44,7 @@ FILES=(
     "slope_of_sub_gridscale_orography"
 )
 
-# based on the input arugment, only fetch one of them one of them
-
-# Create directories for output
-mkdir -p "${OUTPUT_PATH_64}"
-mkdir -p "${OUTPUT_PATH_240}"
-
-# Function to download dataset
-copy_dataset() {
-    local BASE_PATH="$1"
-    local OUTPUT_PATH="$2"
-    
-    gsutil -m cp -r ${FILES[@]/#/${BASE_PATH}/} "$OUTPUT_PATH"
-}
-
-# Download both resolutions
-copy_dataset "$BASE_PATH_64" "$OUTPUT_PATH_64"
-copy_dataset "$BASE_PATH_240" "$OUTPUT_PATH_240"
+# Download dataset
+gsutil -m cp -r ${FILES[@]/#/${BASE_PATH}/} "$OUTPUT_PATH"
 
 echo "Download complete!"

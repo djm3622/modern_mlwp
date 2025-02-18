@@ -1,14 +1,14 @@
 """ERA5 dataset handling"""
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 import os
 import re
 
-import dask
+import dask # type: ignore
 import numpy
-from omegaconf import DictConfig
+from typing import Dict
 import torch
-import xarray
+import xarray # type: ignore
 
 from data.forcings import time_forcings, toa_radiation
 
@@ -22,7 +22,7 @@ class ERA5Dataset(torch.utils.data.Dataset):
         end_date: str,
         forecast_steps: int = 1,
         dtype=torch.float32,
-        cfg: DictConfig = {},
+        cfg: Dict = {},
     ) -> None:
         
         features_cfg = cfg.features
@@ -258,7 +258,7 @@ class ERA5Dataset(torch.utils.data.Dataset):
         x_grid = x.permute(0, 3, 1, 2)
         y_grid = y.permute(0, 3, 1, 2)
 
-        return x_grid.squeeze(0), y_grid.squeeze(0), torch.ones(1), (mu, sigma)
+        return x_grid.squeeze(0), y_grid.squeeze(0), (mu, sigma)
 
     def _standardize(self, x):
         return (x - x.mean(dim=(1, 2), keepdim=True)) / x.std(dim=(1, 2), keepdim=True)
