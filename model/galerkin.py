@@ -6,6 +6,7 @@ import copy
 from torch.nn.init import xavier_uniform_, constant_, xavier_normal_
 from typing import Tuple
 
+
 # Galerkin Attention block adapted from https://github.com/scaomath/galerkin-transformer
 class GalerkinAttention(nn.Module):
     def __init__(

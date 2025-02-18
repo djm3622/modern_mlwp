@@ -3,6 +3,7 @@ import torch.fft
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 # block addapted from https://github.com/NVlabs/AFNO-transformer
 class AFNO2D(nn.Module):
     """

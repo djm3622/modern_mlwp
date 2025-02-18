@@ -156,6 +156,9 @@ def main():
     # Step 1: Stack data for efficient storage and processing
     stack_data(ds, args.output_dir)
 
+    # Step 1.5: If size 1440x721 or 240x121, reshape to 1440x720 or 240x120
+    # TODO
+
     # Step 2: Precompute static data (e.g., geographic variables)
     precompute_static_data(ds, args.output_dir)
 
