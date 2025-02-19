@@ -1,0 +1,120 @@
+device:
+  preference: 'cuda'
+  index: null
+  
+loss:
+  mse: 0.5                       # Mean Squared Error
+  mae: 0.5                       # Mean Absolute Error
+
+run_info:
+  project_name: "init"            # Name of the project
+  experiment_name: "init"         # Name of the experiment
+  save_dir: "checkpoint"          # Directory to save the checkpoints
+
+checkpoint:
+  from_state: null                # Path to the state to load
+  from_checkpoint: null           # Path to the checkpoint to load
+
+distributed_training:
+  batch_size: 32                  # Batch size
+  workers: 12                     # Number of workers for data loading
+  pin_memory: True                # Pin memory flag
+  grad_accumulate: 2              # Number of batches to accumulate before backpropagation
+
+optimization:
+  max_lr: 1.0e-4                  # Maximum learning rate
+  lr: 1.414e-5                    # starting Learning rate
+
+data:
+  root_dir: ERA5/5.65deg           # Root directory for the data
+  time_resolution: 6h              # Time between two consecutive samples
+  forecast_steps: 1                # Number of autoregressive steps for forecasting
+  timestep: 1000                   # Number of timesteps for the DIFFUSION model
+
+dataset:
+  start_date: 1960-01-01           # Start date for the training dataset (YYYY-MM-DD)
+  end_date: 2014-12-31             # End date for the training dataset (YYYY-MM-DD)
+
+validation_dataset:
+  start_date: 2015-01-01           # Start date for the validation dataset (YYYY-MM-DD)
+  end_date: 2023-12-31             # End date for the validation dataset (YYYY-MM-DD)
+
+training:
+  seed: 100                        # Seed for reproducibility
+  gamma: 0.99                      # Discount factor for autoression
+
+  epochs: 300                      # Number of epochs
+  validation_delay: 10             # Number of epochs before validation
+  patience: 10                     # Number of epochs before early stopping
+
+  variable_loss_weights:
+    atmospheric:
+      wind_x: 1.0
+      wind_y: 1.0
+      wind_z: 1.0
+      geopotential: 1.0
+      specific_humidity: 1.0
+      temperature: 1.0
+    surface:
+      wind_x_10m: 0.1
+      wind_y_10m: 0.1
+      2m_temperature: 0.1
+      mean_sea_level_pressure: 0.1
+      surface_pressure: 0.1
+      total_column_water: 0.1
+      total_precipitation_6hr: 0.1
+
+features:
+  pressure_levels:
+    - 50
+    - 100
+    - 150
+    - 200
+    - 250
+    - 300
+    - 400
+    - 500
+    - 600
+    - 700
+    - 850
+    - 925
+    - 1000
+
+  base:
+    atmospheric:
+      - geopotential
+      - wind_x
+      - wind_y
+      - wind_z
+      - specific_humidity
+      - temperature
+    surface:
+      - wind_x_10m
+      - wind_y_10m
+      - 2m_temperature
+      - mean_sea_level_pressure
+      - surface_pressure
+      - total_column_water
+      - total_precipitation_6hr
+
+  input:
+    atmospheric: ${features.base.atmospheric}
+    surface: ${features.base.surface}
+    forcings:
+      - toa_incident_solar_radiation
+      - sin_time_of_day
+      - cos_time_of_day
+      - sin_year_progress
+      - cos_year_progress
+    constants:
+      - geopotential_at_surface
+      - land_sea_mask
+      - slope_of_sub_gridscale_orography
+      - standard_deviation_of_orography
+      - latitude
+      - longitude
+
+  output:
+    atmospheric: ${features.base.atmospheric}
+    surface: ${features.base.surface}
+

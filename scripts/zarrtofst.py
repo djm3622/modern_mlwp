@@ -1,6 +1,6 @@
-import xarray as xr
+import xarray as xr # type: ignore
 import numpy as np
-import rpnpy.librmn.all as rmn
+import rpnpy.librmn.all as rmn # type: ignore
 import os
 import pandas as pd
 import sys

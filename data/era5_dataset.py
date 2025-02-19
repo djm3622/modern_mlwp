@@ -6,7 +6,7 @@ import re
 
 import dask # type: ignore
 import numpy
-from typing import Dict
+from typing import TypedDict
 import torch
 import xarray # type: ignore
 
@@ -20,9 +20,9 @@ class ERA5Dataset(torch.utils.data.Dataset):
         root_dir: str,
         start_date: str,
         end_date: str,
+        cfg: TypedDict, # type: ignore
         forecast_steps: int = 1,
-        dtype=torch.float32,
-        cfg: Dict = {},
+        dtype=torch.float32
     ) -> None:
         
         features_cfg = cfg.features
